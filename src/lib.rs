@@ -3,7 +3,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::mem;
 
-const MAX_LOAD_FACTOR: f64 = 0.8;
+const MAX_LOAD_FACTOR: f64 = 0.6;
 const FIRST_ALLOCATION_SIZE: usize = 2;
 
 #[derive(Debug)]
