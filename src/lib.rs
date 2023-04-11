@@ -23,6 +23,12 @@ pub struct HashMap<K, V> {
     entries: Option<Box<[Entry<K, V>]>>,
 }
 
+impl<K, V> Default for HashMap<K, V> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<K, V> HashMap<K, V> {
     pub fn capacity(&self) -> usize {
         self.capacity
@@ -32,7 +38,11 @@ impl<K, V> HashMap<K, V> {
         self.len
     }
 
-    pub fn new() -> HashMap<K, V> {
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn new() -> Self {
         HashMap {
             capacity: 0,
             len: 0,
@@ -80,7 +90,7 @@ where
                         }
                     }
                     Entry::Tombstone => {
-                        if let None = first_tombstone {
+                        if first_tombstone.is_none() {
                             first_tombstone = Some(i);
                         }
                     }
@@ -118,13 +128,13 @@ where
                 entries: Some(v.into_boxed_slice()),
             },
         );
-        old_map.entries.map(|entries| {
+        if let Some(entries) = old_map.entries {
             for entry in Vec::from(entries).into_iter() {
                 if let Entry::Pair { key, value } = entry {
                     self.insert(key, value);
                 }
             }
-        });
+        }
     }
 
     pub fn get<Q>(&self, key: &Q) -> Option<&V>
