@@ -3,8 +3,10 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::mem;
 
-const MAX_LOAD_FACTOR: f64 = 0.6;
-const FIRST_ALLOCATION_SIZE: usize = 2;
+// Use inverse load factors to allow integer division.
+const INVERSE_MAX_LOAD_FACTOR: usize = 2;
+const INVERSE_MIN_LOAD_FACTOR: usize = 8;
+const FIRST_ALLOCATION_SIZE: usize = 4;
 
 #[derive(Debug)]
 enum Entry<K, V> {
@@ -98,12 +100,11 @@ where
         })
     }
 
-    fn grow(&mut self) {
-        let new_capacity = if self.capacity == 0 {
-            FIRST_ALLOCATION_SIZE
-        } else {
-            self.capacity * 2
-        };
+    fn resize(&mut self, new_capacity: usize) {
+        if new_capacity == 0 {
+            *self = Self::new();
+            return;
+        }
         let mut v = Vec::with_capacity(new_capacity);
         for _ in 0..new_capacity {
             v.push(Entry::Empty);
@@ -142,10 +143,10 @@ where
     }
 
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
-        if self.capacity == 0
-            || (self.len + self.tombstone_count + 1) as f64 / self.capacity as f64 > MAX_LOAD_FACTOR
-        {
-            self.grow();
+        if self.capacity == 0 {
+            self.resize(FIRST_ALLOCATION_SIZE);
+        } else if self.capacity / (self.len + self.tombstone_count + 1) < INVERSE_MAX_LOAD_FACTOR {
+            self.resize(self.capacity * 2);
         }
         self.lookup(&key).and_then(|i| {
             self.entries
@@ -174,7 +175,7 @@ where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        self.lookup(key).and_then(|i| {
+        let result = self.lookup(key).and_then(|i| {
             self.entries
                 .as_deref_mut()
                 .and_then(|entries| match &mut entries[i] {
@@ -190,6 +191,12 @@ where
                         }
                     }
                 })
-        })
+        });
+        if self.len == 0 {
+            self.resize(0);
+        } else if self.capacity / self.len > INVERSE_MIN_LOAD_FACTOR {
+            self.resize(self.capacity / 2);
+        }
+        result
     }
 }
