@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::mem;
@@ -43,7 +44,11 @@ impl<K, V> HashMap<K, V>
 where
     K: Hash,
 {
-    fn index(&self, key: &K) -> Option<usize> {
+    fn index<Q>(&self, key: &Q) -> Option<usize>
+    where
+        K: Borrow<Q>,
+        Q: Hash + ?Sized,
+    {
         let mut hasher = DefaultHasher::new();
         key.hash(&mut hasher);
         (hasher.finish() as usize).checked_rem(self.capacity)
@@ -54,7 +59,11 @@ impl<K, V> HashMap<K, V>
 where
     K: Hash + Eq,
 {
-    fn lookup(&self, key: &K) -> Option<usize> {
+    fn lookup<Q>(&self, key: &Q) -> Option<usize>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
         self.entries.as_deref().map(|entries| {
             let mut i = self
                 .index(key)
@@ -76,7 +85,7 @@ where
                     Entry::Pair {
                         key: current_key, ..
                     } => {
-                        if key == current_key {
+                        if key == current_key.borrow() {
                             break i;
                         }
                     }
@@ -117,7 +126,11 @@ where
         });
     }
 
-    pub fn get(&self, key: &K) -> Option<&V> {
+    pub fn get<Q>(&self, key: &Q) -> Option<&V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
         self.lookup(key).and_then(|i| {
             self.entries
                 .as_deref()
@@ -156,8 +169,12 @@ where
         })
     }
 
-    pub fn remove(&mut self, key: K) -> Option<V> {
-        self.lookup(&key).and_then(|i| {
+    pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        self.lookup(key).and_then(|i| {
             self.entries
                 .as_deref_mut()
                 .and_then(|entries| match &mut entries[i] {
