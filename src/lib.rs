@@ -131,7 +131,7 @@ where
         if let Some(entries) = old_map.entries {
             for entry in Vec::from(entries).into_iter() {
                 if let Entry::Pair { key, value } = entry {
-                    self.insert(key, value);
+                    self.insert_helper(key, value);
                 }
             }
         }
@@ -152,12 +152,7 @@ where
         })
     }
 
-    pub fn insert(&mut self, key: K, value: V) -> Option<V> {
-        if self.capacity == 0 {
-            self.resize(FIRST_ALLOCATION_SIZE);
-        } else if self.capacity / (self.len + self.tombstone_count + 1) < INVERSE_MAX_LOAD_FACTOR {
-            self.resize(self.capacity * 2);
-        }
+    fn insert_helper(&mut self, key: K, value: V) -> Option<V> {
         self.lookup(&key).and_then(|i| {
             self.entries
                 .as_deref_mut()
@@ -178,6 +173,15 @@ where
                     } => Some(mem::replace(old_value, value)),
                 })
         })
+    }
+
+    pub fn insert(&mut self, key: K, value: V) -> Option<V> {
+        if self.capacity == 0 {
+            self.resize(FIRST_ALLOCATION_SIZE);
+        } else if self.capacity / (self.len + self.tombstone_count + 1) < INVERSE_MAX_LOAD_FACTOR {
+            self.resize(self.capacity * 2);
+        }
+        self.insert_helper(key, value)
     }
 
     pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
